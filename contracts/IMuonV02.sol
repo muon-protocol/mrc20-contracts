@@ -2,14 +2,13 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
-//TODO: Let's move this to IMuonV02 like what we have on permissionless bridge
-struct SchnorrSign {
-    uint256 signature;
-    address owner;
-    address nonce;
-}
-
 interface IMuonV02 {
+    struct SchnorrSign {
+        uint256 signature;
+        address owner;
+        address nonce;
+    }
+
     function verify(
         bytes calldata reqId,
         uint256 hash,

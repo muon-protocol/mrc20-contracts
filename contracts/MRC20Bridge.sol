@@ -30,9 +30,7 @@ contract MRC20Bridge is Ownable {
         uint256 fromChain;
         uint256 toChain;
         address user;
-        //TODO: let's add time here. Otherwise it will be hard to find the time from the Muon app
-        // We do not need to pass the time to claim function.
-        // But let's save it here
+        uint256 timestamp;
     }
 
     uint256 public lastTxId = 0; // unique id for deposit tx
@@ -41,11 +39,6 @@ contract MRC20Bridge is Ownable {
     uint256 public fee;
     uint256 public feeScale = 1e6;
     address public muonContract;
-
-
-    //TODO: Let's assume that ALL contracts are mintable and burnable
-    // and remove this
-    bool public mintable; // use mint functions instead of transfer
 
     uint8 constant APP_ID = 5; // muon's  app id
     // we assign a unique ID to each chain (default is CHAIN-ID)
@@ -62,12 +55,10 @@ contract MRC20Bridge is Ownable {
 
     constructor(
         address _muon,
-        bool _mintable,
         uint256 _minReqSigs,
         uint256 _fee
     ) {
         network = getExecutingChainID();
-        mintable = _mintable;
         muonContract = _muon;
         minReqSigs = _minReqSigs;
         fee = _fee;
@@ -97,11 +88,8 @@ contract MRC20Bridge is Ownable {
         require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
         IERC20 token = IERC20(tokens[tokenId]);
-        if (mintable) {
-            token.burn(msg.sender, amount);
-        } else {
-            token.transferFrom(msg.sender, address(this), amount);
-        }
+        token.burn(msg.sender, amount);
+
         txId = ++lastTxId;
         txs[txId] = TX({
             txId: txId,
@@ -109,7 +97,8 @@ contract MRC20Bridge is Ownable {
             fromChain: network,
             toChain: toChain,
             amount: amount,
-            user: user
+            user: user,
+            timestamp: block.timestamp
         });
         userTxs[user][toChain].push(txId);
 
@@ -124,7 +113,7 @@ contract MRC20Bridge is Ownable {
         uint256 tokenId,
         uint256 txId,
         bytes calldata _reqId,
-        SchnorrSign[] calldata sigs
+        IMuonV02.SchnorrSign[] calldata sigs
     ) public {
         require(
             sideContracts[fromChain] != address(0),
@@ -161,27 +150,14 @@ contract MRC20Bridge is Ownable {
 
         amount -= (amount * fee) / feeScale;
         IERC20 token = IERC20(tokens[tokenId]);
-        if (mintable) {
-            token.mint(user, amount);
-        } else {
-            token.transfer(user, amount);
-        }
+
+        token.mint(user, amount);
 
         claimedTxs[fromChain][txId] = true;
         emit Claim(user, tokenId, amount, fromChain, txId);
     }
 
     /* ========== VIEWS ========== */
-
-    //TODO: we don't need this. Right?
-    // Let's delete
-    function collatDollarBalance(uint256 collat_usd_price)
-        public
-        view
-        returns (uint256)
-    {
-        return 0;
-    }
 
     function pendingTxs(uint256 fromChain, uint256[] calldata ids)
         public
@@ -211,7 +187,8 @@ contract MRC20Bridge is Ownable {
             uint256 amount,
             uint256 fromChain,
             uint256 toChain,
-            address user
+            address user,
+            uint256 timestamp
         )
     {
         txId = txs[_txId].txId;
@@ -220,6 +197,7 @@ contract MRC20Bridge is Ownable {
         fromChain = txs[_txId].fromChain;
         toChain = txs[_txId].toChain;
         user = txs[_txId].user;
+        timestamp = txs[_txId].timestamp;
     }
 
     function getExecutingChainID() public view returns (uint256) {
@@ -258,10 +236,6 @@ contract MRC20Bridge is Ownable {
     {
         require(network != _network, "Bridge: current network");
         sideContracts[_network] = _addr;
-    }
-
-    function setMintable(bool _mintable) external onlyOwner {
-        mintable = _mintable;
     }
 
     function emergencyWithdrawETH(uint256 amount, address addr)

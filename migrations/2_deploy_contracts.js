@@ -1,5 +1,5 @@
-const bridge = artifacts.require('./FearBridge.sol')
-const fearToken = artifacts.require('./FearToken.sol')
+const bridge = artifacts.require('./MRC20Bridge.sol')
+const fearToken = artifacts.require('./BloodToken.sol')
 const fearPresale = artifacts.require('./FearPresale.sol')
 
 function parseArgv() {
@@ -17,7 +17,7 @@ module.exports = function (deployer) {
   deployer.then(async () => {
     let params = parseArgv()
     switch (params['contract']) {
-      case 'FearToken':
+      case 'token':
         await deployer.deploy(
           fearToken,
           params['name'],
@@ -25,9 +25,7 @@ module.exports = function (deployer) {
           params['decimals']
         )
         break
-      case 'FearBridge':
-        let mintable = params['mintable'] || 'true'
-        mintable = mintable === 'true' || mintable === true || mintable == 1
+      case 'bridge':
         let minReqSigs = 1
         let fee = 0
 
@@ -35,15 +33,13 @@ module.exports = function (deployer) {
           throw { message: 'muonAddress required.' }
         }
 
-        await deployer.deploy(
-          bridge,
-          params['muonAddress'],
-          mintable,
-          minReqSigs,
-          fee
-        )
+        await deployer.deploy(bridge, params['muonAddress'], minReqSigs, fee)
         break
-      case 'FearPresale':
+      case 'presale':
+        if (!params['muonAddress']) {
+          throw { message: 'muonAddress required.' }
+        }
+
         await deployer.deploy(fearPresale, params['muonAddress'])
         break
 
