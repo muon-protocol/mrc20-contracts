@@ -35,7 +35,7 @@ contract FearPresale is Ownable {
     mapping(address => uint256) public balances;
     mapping(address => uint256) public lastTimes;
 
-    uint8 constant  APP_ID = 6;
+    uint8 constant APP_ID = 6;
 
     bool public running = true;
 
@@ -76,7 +76,7 @@ contract FearPresale is Ownable {
         address forAddress,
         uint256[] memory addressMaxCap,
         bytes calldata _reqId,
-        SchnorrSign[] calldata _sigs
+        IMuonV02.SchnorrSign[] calldata _sigs
     ) public payable isRunning {
         require(_sigs.length > 0, "!sigs");
         require(addressMaxCap[1] == getChainID(), "Invalid Chain ID");
@@ -104,11 +104,8 @@ contract FearPresale is Ownable {
         require(balances[forAddress] + usdAmount <= addressMaxCap[0], ">max");
 
         require(time + maxMuonDelay > block.timestamp, "muon: expired");
-        
-        require(
-            time - lastTimes[forAddress] > maxMuonDelay,
-            "duplicate"
-        );
+
+        require(time - lastTimes[forAddress] > maxMuonDelay, "duplicate");
 
         lastTimes[forAddress] = time;
 
