@@ -27,7 +27,7 @@ interface StandardToken {
     function burn(address sender, uint256 amount) external returns (bool);
 }
 
-contract FearPresale is Ownable {
+contract MRC20Presale is Ownable {
     using ECDSA for bytes32;
 
     IMuonV02 muon;
@@ -40,6 +40,7 @@ contract FearPresale is Ownable {
     bool public running = true;
 
     uint256 public maxMuonDelay = 5 minutes;
+    address public mintToken;
 
     event Deposit(
         address token,
@@ -56,8 +57,9 @@ contract FearPresale is Ownable {
         _;
     }
 
-    constructor(address _muon) {
+    constructor(address _muon,address mintToken) {
         muon = IMuonV02(_muon);
+        mintToken=mintToken;
     }
 
     function getChainID() public view returns (uint256) {
@@ -114,7 +116,7 @@ contract FearPresale is Ownable {
         } else {
             StandardToken tokenCon = StandardToken(token);
             tokenCon.transferFrom(address(msg.sender), address(this), amount);
-            tokenCon.mint(address(msg.sender), amount);
+            mintToken.mint(address(msg.sender), amount);
         }
 
         emit Deposit(
@@ -138,6 +140,10 @@ contract FearPresale is Ownable {
 
     function setMaxMuonDelay(uint256 delay) public onlyOwner {
         maxMuonDelay = delay;
+    }
+
+    function setMintToken(address mintToken) public onlyOwner{
+        mintToken=mintToken
     }
 
     function emergencyWithdrawETH(uint256 amount, address addr)
