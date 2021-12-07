@@ -101,8 +101,8 @@ contract MRC20Presale is Ownable {
         require(verified, "!verified");
 
         // check max
-        uint256 usdAmount = (amount * tokenPrice) /
-            (10**(token == address(0) ? 18 : StandardToken(token).decimals()));
+        uint256 mintAmount = (amount / tokenPrice) *
+            (10** StandardToken(mintToken).decimals());
         require(balances[forAddress] + usdAmount <= addressMaxCap[0], ">max");
 
         require(time + maxMuonDelay > block.timestamp, "muon: expired");
@@ -116,7 +116,7 @@ contract MRC20Presale is Ownable {
         } else {
             StandardToken tokenCon = StandardToken(token);
             tokenCon.transferFrom(address(msg.sender), address(this), amount);
-            mintToken.mint(address(msg.sender), amount);
+            mintToken.mint(address(msg.sender), mintAmount);
         }
 
         emit Deposit(
