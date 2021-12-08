@@ -101,15 +101,17 @@ contract MRC20Presale is Ownable {
         require(verified, "!verified");
 
         // check max
-        uint256 mintAmount = (amount / tokenPrice) *
-            (10** StandardToken(mintToken).decimals());
-        require(balances[forAddress] + mintAmount <= addressMaxCap[0], ">max");
+        uint256 usdAmount = (amount * tokenPrice) /
+            (10**(token == address(0) ? 18 : StandardToken(token).decimals()));
+        require(balances[forAddress] + usdAmount <= addressMaxCap[0], ">max");
 
         require(time + maxMuonDelay > block.timestamp, "muon: expired");
 
         require(time - lastTimes[forAddress] > maxMuonDelay, "duplicate");
 
         lastTimes[forAddress] = time;
+        uint256 mintAmount = (amount / tokenPrice) *
+            (10** StandardToken(mintToken).decimals());
 
         if (token == address(0)) {
             require(amount == msg.value, "amount err");
