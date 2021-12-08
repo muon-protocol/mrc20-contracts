@@ -34,7 +34,8 @@ contract MRC20Presale is Ownable {
         uint256 time,
         address fromAddress,
         address forAddress,
-        uint256 allocation
+        uint256 allocation,
+        uint256 tokenPrice
     );
 
     modifier isRunning() {
@@ -99,9 +100,6 @@ contract MRC20Presale is Ownable {
 
         lastTimes[forAddress] = time;
         
-        uint256 mintAmount = (amount / presaleTokenPrice) *
-            (10** IMRC20(presaleToken).decimals());
-
         uint256 mintAmount = usdAmount * (10** IMRC20(presaleToken).decimals()) / presaleTokenPrice;
 
         require(token != address(0) || amount == msg.value, "amount err");
@@ -118,7 +116,8 @@ contract MRC20Presale is Ownable {
             time,
             msg.sender,
             forAddress,
-            extraParameters[0]
+            extraParameters[0],
+            extraParameters[2]
         );
     }
 
