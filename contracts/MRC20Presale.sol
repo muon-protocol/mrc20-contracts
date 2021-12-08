@@ -2,35 +2,20 @@
 pragma solidity ^0.8.0;
 
 import "./IMuonV02.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-interface StandardToken {
-    function balanceOf(address account) external view returns (uint256);
 
-    function transfer(address recipient, uint256 amount)
-        external
-        returns (bool);
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
-
-    function approve(address spender, uint256 amount) external returns (bool);
-
-    function decimals() external returns (uint8);
-
+interface IMRC20 is IERC20{
     function mint(address reveiver, uint256 amount) external returns (bool);
-
     function burn(address sender, uint256 amount) external returns (bool);
 }
 
 contract MRC20Presale is Ownable {
     using ECDSA for bytes32;
 
-    IMuonV02 muon;
+    IMuonV02 public muon;
 
     mapping(address => uint256) public balances;
     mapping(address => uint256) public lastTimes;
@@ -40,16 +25,16 @@ contract MRC20Presale is Ownable {
     bool public running = true;
 
     uint256 public maxMuonDelay = 5 minutes;
-    address public mintToken;
+    address public presaleToken;
 
     event Deposit(
         address token,
-        uint256 tokenPrice,
+        uint256 presaleTokenPrice,
         uint256 amount,
         uint256 time,
         address fromAddress,
         address forAddress,
-        uint256[] addressMaxCap
+        uint256 allocation
     );
 
     modifier isRunning() {
@@ -57,9 +42,9 @@ contract MRC20Presale is Ownable {
         _;
     }
 
-    constructor(address _muon,address mintToken) {
+    constructor(address _muon,address presaleToken) {
         muon = IMuonV02(_muon);
-        mintToken=mintToken;
+        presaleToken=presaleToken;
     }
 
     function getChainID() public view returns (uint256) {
@@ -72,26 +57,29 @@ contract MRC20Presale is Ownable {
 
     function deposit(
         address token,
-        uint256 tokenPrice,
+        uint256 presaleTokenPrice,
         uint256 amount,
         uint256 time,
         address forAddress,
-        uint256[] memory addressMaxCap,
+        uint256[3] memory extraParameters, // [0]=allocation, [1]=chainId, [2]=tokenPrice
         bytes calldata _reqId,
         IMuonV02.SchnorrSign[] calldata _sigs
     ) public payable isRunning {
         require(_sigs.length > 0, "!sigs");
-        require(addressMaxCap[1] == getChainID(), "Invalid Chain ID");
+        require(extraParameters[1] == getChainID(), "Invalid Chain ID");
+
+        uint256 tokenPrice = extraParameters[2];
 
         bytes32 hash = keccak256(
             abi.encodePacked(
                 token,
-                tokenPrice,
+                presaleTokenPrice,
                 amount,
                 time,
                 forAddress,
-                addressMaxCap[0],
-                addressMaxCap[1],
+                extraParameters[0],
+                extraParameters[1],
+                tokenPrice,
                 APP_ID
             )
         );
@@ -101,34 +89,36 @@ contract MRC20Presale is Ownable {
         require(verified, "!verified");
 
         // check max
-        uint256 usdAmount = (amount * tokenPrice) /
-            (10**(token == address(0) ? 18 : StandardToken(token).decimals()));
-        require(balances[forAddress] + usdAmount <= addressMaxCap[0], ">max");
+        uint256 usdAmount = (amount * tokenPrice);
+
+        require(balances[forAddress] + usdAmount <= extraParameters[0], ">max");
 
         require(time + maxMuonDelay > block.timestamp, "muon: expired");
 
         require(time - lastTimes[forAddress] > maxMuonDelay, "duplicate");
 
         lastTimes[forAddress] = time;
-        uint256 mintAmount = (amount / tokenPrice) *
-            (10** StandardToken(mintToken).decimals());
+        
+        uint256 mintAmount = (amount / presaleTokenPrice) *
+            (10** IMRC20(presaleToken).decimals());
 
-        if (token == address(0)) {
-            require(amount == msg.value, "amount err");
-        } else {
-            StandardToken tokenCon = StandardToken(token);
-            tokenCon.transferFrom(address(msg.sender), address(this), amount);
-            mintToken.mint(address(msg.sender), mintAmount);
+        uint256 mintAmount = usdAmount * (10** IMRC20(presaleToken).decimals()) / presaleTokenPrice;
+
+        require(token != address(0) || amount == msg.value, "amount err");
+        
+        if(token != address(0)){
+            IMRC20(token).transferFrom(address(msg.sender), address(this), amount);
         }
+        presaleToken.mint(address(msg.sender), mintAmount);
 
         emit Deposit(
             token,
-            tokenPrice,
+            presaleTokenPrice,
             amount,
             time,
             msg.sender,
             forAddress,
-            addressMaxCap
+            extraParameters[0]
         );
     }
 
@@ -144,8 +134,8 @@ contract MRC20Presale is Ownable {
         maxMuonDelay = delay;
     }
 
-    function setMintToken(address mintToken) public onlyOwner{
-        mintToken=mintToken
+    function setpresaleToken(address presaleToken) public onlyOwner{
+        presaleToken=presaleToken
     }
 
     function emergencyWithdrawETH(uint256 amount, address addr)
@@ -161,6 +151,6 @@ contract MRC20Presale is Ownable {
         address _to,
         uint256 _amount
     ) public onlyOwner {
-        StandardToken(_tokenAddr).transfer(_to, _amount);
+        IMRC20(_tokenAddr).transfer(_to, _amount);
     }
 }
