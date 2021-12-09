@@ -59,11 +59,12 @@ contract MRC20Presale is Ownable {
     address token,
     uint256 presaleTokenPrice,
     address forAddress,
-    uint256[5] memory extraParameters, // [0]=allocation, [1]=chainId, [2]=tokenPrice [3]=amount [4]=time
-    bytes calldata _reqId,
-    IMuonV02.SchnorrSign[] calldata _sigs
+    uint256[5] memory extraParameters, 
+    // [0]=allocation,[1]=chainId,[2]=tokenPrice, [3]=amount ,[4]=time
+    bytes calldata reqId,
+    IMuonV02.SchnorrSign[] calldata sigs
   ) public payable isRunning {
-    require(_sigs.length > 0, '!sigs');
+    require(sigs.length > 0, '!sigs');
     require(extraParameters[1] == getChainID(), 'Invalid Chain ID');
 
     bytes32 hash = keccak256(
@@ -81,7 +82,7 @@ contract MRC20Presale is Ownable {
     );
     hash = hash.toEthSignedMessageHash();
 
-    bool verified = muon.verify(_reqId, uint256(hash), _sigs);
+    bool verified = muon.verify(reqId, uint256(hash), sigs);
     require(verified, '!verified');
 
     // check max

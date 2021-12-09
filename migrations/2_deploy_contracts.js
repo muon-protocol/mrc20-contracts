@@ -39,8 +39,14 @@ module.exports = function (deployer) {
         if (!params['muonAddress']) {
           throw { message: 'muonAddress required.' }
         }
-
-        await deployer.deploy(presale, params['muonAddress'])
+        if (!params['presaleToken']) {
+          throw { message: 'presaleToken required.' }
+        }
+        await deployer.deploy(
+          presale,
+          params['muonAddress'],
+          params['presaleToken']
+        )
         break
 
       default:
