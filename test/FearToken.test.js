@@ -1,11 +1,11 @@
-const FearToken = artifacts.require('FearToken')
+const token = artifacts.require('BloodToken')
 
-contract('FearToken', (accounts) => {
+contract('BloodToken', (accounts) => {
   let token, minterRole, burnerRole
   let mintAmount = web3.utils.toWei('500')
 
   beforeEach(async () => {
-    token = await FearToken.new(accounts[1], 'FT', 'Fear TK', '18')
+    token = await BloodToken.new(accounts[1], 'BT', 'Blood TK', '18')
     minterRole = await token.MINTER_ROLE.call()
     burnerRole = await token.BURNER_ROLE.call()
   })

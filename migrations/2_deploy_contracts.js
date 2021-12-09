@@ -1,6 +1,6 @@
 const bridge = artifacts.require('./MRC20Bridge.sol')
-const fearToken = artifacts.require('./BloodToken.sol')
-const fearPresale = artifacts.require('./FearPresale.sol')
+const token = artifacts.require('./BloodToken.sol')
+const presale = artifacts.require('./MRC20Presale.sol')
 
 function parseArgv() {
   let args = process.argv.slice(2)
@@ -19,7 +19,7 @@ module.exports = function (deployer) {
     switch (params['contract']) {
       case 'token':
         await deployer.deploy(
-          fearToken,
+          token,
           params['name'],
           params['symbol'],
           params['decimals']
@@ -40,7 +40,7 @@ module.exports = function (deployer) {
           throw { message: 'muonAddress required.' }
         }
 
-        await deployer.deploy(fearPresale, params['muonAddress'])
+        await deployer.deploy(presale, params['muonAddress'])
         break
 
       default:
