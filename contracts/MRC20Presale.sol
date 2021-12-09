@@ -32,12 +32,9 @@ contract MRC20Presale is Ownable {
   event Deposit(
     address token,
     uint256 presaleTokenPrice,
-    uint256 amount,
-    uint256 time,
     address fromAddress,
     address forAddress,
-    uint256 allocation,
-    uint256 tokenPrice
+    uint256[5] extraParameters
   );
 
   modifier isRunning() {
@@ -61,28 +58,24 @@ contract MRC20Presale is Ownable {
   function deposit(
     address token,
     uint256 presaleTokenPrice,
-    uint256 amount,
-    uint256 time,
     address forAddress,
-    uint256[3] memory extraParameters, // [0]=allocation, [1]=chainId, [2]=tokenPrice
+    uint256[5] memory extraParameters, // [0]=allocation, [1]=chainId, [2]=tokenPrice [3]=amount [4]=time
     bytes calldata _reqId,
     IMuonV02.SchnorrSign[] calldata _sigs
   ) public payable isRunning {
     require(_sigs.length > 0, '!sigs');
     require(extraParameters[1] == getChainID(), 'Invalid Chain ID');
 
-    uint256 tokenPrice = extraParameters[2];
-
     bytes32 hash = keccak256(
       abi.encodePacked(
         token,
         presaleTokenPrice,
-        amount,
-        time,
+        extraParameters[3],
+        extraParameters[4],
         forAddress,
         extraParameters[0],
         extraParameters[1],
-        tokenPrice,
+        extraParameters[2],
         APP_ID
       )
     );
@@ -92,35 +85,32 @@ contract MRC20Presale is Ownable {
     require(verified, '!verified');
 
     // check max
-    uint256 usdAmount = (amount * tokenPrice);
+    uint256 usdAmount = (extraParameters[3] * extraParameters[2]);
 
     require(balances[forAddress] + usdAmount <= extraParameters[0], '>max');
 
-    require(time + maxMuonDelay > block.timestamp, 'muon: expired');
+    require(extraParameters[4] + maxMuonDelay > block.timestamp, 'muon: expired');
 
-    require(time - lastTimes[forAddress] > maxMuonDelay, 'duplicate');
+    require(extraParameters[4] - lastTimes[forAddress] > maxMuonDelay, 'duplicate');
 
-    lastTimes[forAddress] = time;
+    lastTimes[forAddress] = extraParameters[4];
 
     uint256 mintAmount = (usdAmount * (10**IMRC20(presaleToken).decimals())) /
       presaleTokenPrice;
 
-    require(token != address(0) || amount == msg.value, 'amount err');
+    require(token != address(0) || extraParameters[3] == msg.value, 'amount err');
 
     if (token != address(0)) {
-      IMRC20(token).transferFrom(address(msg.sender), address(this), amount);
+      IMRC20(token).transferFrom(address(msg.sender), address(this), extraParameters[3]);
     }
     IMRC20(presaleToken).mint(address(msg.sender), mintAmount);
 
     emit Deposit(
       token,
       presaleTokenPrice,
-      amount,
-      time,
       msg.sender,
       forAddress,
-      extraParameters[0],
-      extraParameters[2]
+      extraParameters
     );
   }
 
