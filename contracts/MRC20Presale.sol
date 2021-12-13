@@ -59,7 +59,7 @@ contract MRC20Presale is Ownable {
     address token,
     uint256 presaleTokenPrice,
     address forAddress,
-    uint256[5] memory extraParameters, 
+    uint256[5] memory extraParameters,
     // [0]=allocation,[1]=chainId,[2]=tokenPrice, [3]=amount ,[4]=time
     bytes calldata reqId,
     IMuonV02.SchnorrSign[] calldata sigs
@@ -80,29 +80,42 @@ contract MRC20Presale is Ownable {
         APP_ID
       )
     );
-    hash = hash.toEthSignedMessageHash();
 
     bool verified = muon.verify(reqId, uint256(hash), sigs);
     require(verified, '!verified');
 
     // check max
-    uint256 usdAmount = (extraParameters[3] * extraParameters[2]);
+    uint256 usdAmount = (extraParameters[3] * extraParameters[2]) /
+      (10**IMRC20(token).decimals());
 
     require(balances[forAddress] + usdAmount <= extraParameters[0], '>max');
 
-    require(extraParameters[4] + maxMuonDelay > block.timestamp, 'muon: expired');
+    require(
+      extraParameters[4] + maxMuonDelay > block.timestamp,
+      'muon: expired'
+    );
 
-    require(extraParameters[4] - lastTimes[forAddress] > maxMuonDelay, 'duplicate');
+    require(
+      extraParameters[4] - lastTimes[forAddress] > maxMuonDelay,
+      'duplicate'
+    );
 
     lastTimes[forAddress] = extraParameters[4];
 
     uint256 mintAmount = (usdAmount * (10**IMRC20(presaleToken).decimals())) /
       presaleTokenPrice;
 
-    require(token != address(0) || extraParameters[3] == msg.value, 'amount err');
+    require(
+      token != address(0) || extraParameters[3] == msg.value,
+      'amount err'
+    );
 
     if (token != address(0)) {
-      IMRC20(token).transferFrom(address(msg.sender), address(this), extraParameters[3]);
+      IMRC20(token).transferFrom(
+        address(msg.sender),
+        address(this),
+        extraParameters[3]
+      );
     }
     IMRC20(presaleToken).mint(address(msg.sender), mintAmount);
 
