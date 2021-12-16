@@ -60,7 +60,7 @@ contract MRC20Presale is Ownable {
     uint256 presaleTokenPrice,
     address forAddress,
     uint256[5] memory extraParameters,
-    // [0]=allocation,[1]=chainId,[2]=tokenPrice, [3]=amount ,[4]=time
+    // [0]=allocation,[1]=chainId,[2]=tokenPrice, [3]=amount ,[4]=time,
     bytes calldata reqId,
     IMuonV02.SchnorrSign[] calldata sigs
   ) public payable isRunning {
@@ -85,8 +85,10 @@ contract MRC20Presale is Ownable {
     require(verified, '!verified');
 
     // check max
-    uint256 usdAmount = (extraParameters[3] * extraParameters[2]) /
-      (10**IMRC20(token).decimals());
+    uint256 usdAmount = token != address(0)
+      ? (extraParameters[3] * extraParameters[2]) /
+        (10**IMRC20(token).decimals())
+      : (extraParameters[3] * extraParameters[2]) / (10**18);
 
     require(balances[forAddress] + usdAmount <= extraParameters[0], '>max');
 

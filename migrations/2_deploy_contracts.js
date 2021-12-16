@@ -1,6 +1,7 @@
 const bridge = artifacts.require('./MRC20Bridge.sol')
 const token = artifacts.require('./BloodToken.sol')
 const presale = artifacts.require('./MRC20Presale.sol')
+const ERT_d6 = artifacts.require('./ERT_d6.sol')
 
 function parseArgv() {
   let args = process.argv.slice(2)
@@ -47,6 +48,9 @@ module.exports = function (deployer) {
           params['muonAddress'],
           params['presaleToken']
         )
+        break
+      case 'ERT':
+        await deployer.deploy(ERT_d6)
         break
 
       default:
