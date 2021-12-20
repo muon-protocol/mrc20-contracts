@@ -90,7 +90,9 @@ contract MRC20Presale is Ownable {
         (10**IMRC20(token).decimals())
       : (extraParameters[3] * extraParameters[2]) / (10**18);
 
-    require(balances[forAddress] + usdAmount <= extraParameters[0], '>max');
+    
+    balances[forAddress] += usdAmount;
+    require(balances[forAddress] <= extraParameters[0], '>max');
 
     require(
       extraParameters[4] + maxMuonDelay > block.timestamp,
