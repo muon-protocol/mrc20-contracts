@@ -79,7 +79,7 @@ module.exports = {
           process.env.PK,
           'https://rinkeby.infura.io/v3/' + process.env.INFURA_KEY
         ),
-      networkCheckTimeout:10000,
+      networkCheckTimeout: 10000,
       network_id: 4, // Ropsten's id
       gas: 5500000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
@@ -155,18 +155,21 @@ module.exports = {
       gas: 5500000,
       skipDryRun: true
     },
+
     mumbai: {
       provider: () =>
         new HDWalletProvider(
           process.env.PK,
-          'https://rpc-mumbai.maticvigil.com/'
+          'https://matic-mumbai.chainstacklabs.com'
         ),
       network_id: 80001,
       confirmations: 2,
       timeoutBlocks: 200,
       gas: 5500000,
-      skipDryRun: true
+      skipDryRun: true,
+      networkCheckTimeout: 999999
     }
+
     // Useful for private networks
     // private: {
     // provider: () => new HDWalletProvider(mnemonic, `https://network.io`),
