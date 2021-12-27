@@ -8,9 +8,7 @@ import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
 interface IMRC20 is IERC20 {
   function decimals() external returns (uint8);
-
   function mint(address reveiver, uint256 amount) external returns (bool);
-
   function burn(address sender, uint256 amount) external returns (bool);
 }
 
@@ -29,6 +27,16 @@ contract MRC20Presale is Ownable {
   uint256 public maxMuonDelay = 5 minutes;
   address public presaleToken;
 
+  // Total USD amount
+  uint256 public totalBalance = 0;
+
+  address public mounFeesAddress = msg.sender;
+  
+  uint256 public muonFees = 5;
+  uint256 public muonFeesScale = 1000;
+
+  uint256 public startTime = block.timestamp;
+
   event Deposit(
     address token,
     uint256 presaleTokenPrice,
@@ -38,13 +46,17 @@ contract MRC20Presale is Ownable {
   );
 
   modifier isRunning() {
-    require(running, '!running');
+    require(running && startTime < block.timestamp, '!running');
     _;
   }
 
-  constructor(address _muon, address _presaleToken) {
+  constructor(address _muon,
+    address _presaleToken, 
+    address _mounFeesAddress) {
+    
     muon = IMuonV02(_muon);
     presaleToken = _presaleToken;
+    mounFeesAddress = _mounFeesAddress;
   }
 
   function getChainID() public view returns (uint256) {
@@ -93,6 +105,8 @@ contract MRC20Presale is Ownable {
     
     balances[forAddress] += usdAmount;
     require(balances[forAddress] <= extraParameters[0], '>max');
+
+    totalBalance += usdAmount;
 
     require(
       extraParameters[4] + maxMuonDelay > block.timestamp,
@@ -144,20 +158,26 @@ contract MRC20Presale is Ownable {
     maxMuonDelay = delay;
   }
 
-  function setpresaleToken(address addr) public onlyOwner {
+  function setPresaleToken(address addr) public onlyOwner {
     presaleToken = addr;
   }
 
-  function emergencyWithdrawETH(uint256 amount, address addr) public onlyOwner {
+  function setStartTime(uint256 _time) public onlyOwner {
+    startTime = _time;
+  }
+
+  function withdrawETH(uint256 amount, address addr) public onlyOwner {
     require(addr != address(0));
     payable(addr).transfer(amount);
   }
 
-  function emergencyWithdrawERC20Tokens(
+  function withdrawERC20Tokens(
     address _tokenAddr,
     address _to,
     uint256 _amount
   ) public onlyOwner {
-    IMRC20(_tokenAddr).transfer(_to, _amount);
+    uint256 fees = _amount * muonFees / muonFeesScale;
+    IMRC20(_tokenAddr).transfer(mounFeesAddress, fees);
+    IMRC20(_tokenAddr).transfer(_to, _amount-fees);
   }
 }
