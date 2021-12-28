@@ -43,10 +43,14 @@ module.exports = function (deployer) {
         if (!params['presaleToken']) {
           throw { message: 'presaleToken required.' }
         }
+        if (!params['mounFeesAddress']) {
+          throw { message: 'mounFeesAddress required.' }
+        }
         await deployer.deploy(
           presale,
           params['muonAddress'],
-          params['presaleToken']
+          params['presaleToken'],
+          params['mounFeesAddress']
         )
         break
       case 'ERT':
