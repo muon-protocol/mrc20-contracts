@@ -2,22 +2,9 @@
 pragma solidity ^0.8.0;
 
 import "./IMuonV02.sol";
+import "./IMRC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-
-interface IERC20 {
-    function transfer(address recipient, uint256 amount) external;
-
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external;
-
-    function mint(address reveiver, uint256 amount) external returns (bool);
-
-    function burn(address sender, uint256 amount) external returns (bool);
-}
 
 contract MRC20Bridge is Ownable {
     using ECDSA for bytes32;
@@ -87,8 +74,8 @@ contract MRC20Bridge is Ownable {
         require(toChain != network, "Bridge: selfDeposit");
         require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
-        IERC20 token = IERC20(tokens[tokenId]);
-        token.burn(msg.sender, amount);
+        IMRC20 token = IMRC20(tokens[tokenId]);
+        token.burnFrom(msg.sender, amount);
 
         txId = ++lastTxId;
         txs[txId] = TX({
@@ -149,7 +136,7 @@ contract MRC20Bridge is Ownable {
         require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
         amount -= (amount * fee) / feeScale;
-        IERC20 token = IERC20(tokens[tokenId]);
+        IMRC20 token = IMRC20(tokens[tokenId]);
 
         token.mint(user, amount);
 
