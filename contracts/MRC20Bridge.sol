@@ -3,10 +3,23 @@ pragma solidity ^0.8.0;
 
 import "./IMuonV02.sol";
 import "./IMRC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-contract MRC20Bridge is Ownable {
+contract MRC20Bridge is AccessControl {
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+
+    /**
+     * @dev `AddToken` and `setSideContract`
+     * are using this role. 
+     *
+     * This role could be granted another contract to let a Muon app
+     * manage the tokens. The token deployer will be verified by
+     * a Muon app and let the deployer add new tokens to the MTC20Bridges.
+     */
+    bytes32 public constant TOKEN_ADDER_ROLE = keccak256("TOKEN_ADDER");
+
     using ECDSA for bytes32;
 
     /* ========== STATE VARIABLES ========== */
@@ -49,6 +62,7 @@ contract MRC20Bridge is Ownable {
         muonContract = _muon;
         minReqSigs = _minReqSigs;
         fee = _fee;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /* ========== PUBLIC FUNCTIONS ========== */
@@ -199,27 +213,27 @@ contract MRC20Bridge is Ownable {
 
     function addToken(uint256 tokenId, address tokenAddress)
         external
-        onlyOwner
+        onlyRole(TOKEN_ADDER_ROLE)
     {
         tokens[tokenId] = tokenAddress;
     }
 
-    function setNetworkID(uint256 _network) external onlyOwner {
+    function setNetworkID(uint256 _network) external onlyRole(ADMIN_ROLE) {
         network = _network;
         delete sideContracts[network];
     }
 
-    function setFee(uint256 _fee) external onlyOwner {
+    function setFee(uint256 _fee) external onlyRole(ADMIN_ROLE) {
         fee = _fee;
     }
 
-    function setMinReqSigs(uint256 _minReqSigs) external onlyOwner {
+    function setMinReqSigs(uint256 _minReqSigs) external onlyRole(ADMIN_ROLE) {
         minReqSigs = _minReqSigs;
     }
 
     function setSideContract(uint256 _network, address _addr)
         external
-        onlyOwner
+        onlyRole(TOKEN_ADDER_ROLE)
     {
         require(network != _network, "Bridge: current network");
         sideContracts[_network] = _addr;
@@ -227,7 +241,7 @@ contract MRC20Bridge is Ownable {
 
     function emergencyWithdrawETH(uint256 amount, address addr)
         external
-        onlyOwner
+        onlyRole(ADMIN_ROLE)
     {
         require(addr != address(0));
         payable(addr).transfer(amount);
@@ -237,7 +251,7 @@ contract MRC20Bridge is Ownable {
         address _tokenAddr,
         address _to,
         uint256 _amount
-    ) external onlyOwner {
+    ) external onlyRole(ADMIN_ROLE) {
         IERC20(_tokenAddr).transfer(_to, _amount);
     }
 
