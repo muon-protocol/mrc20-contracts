@@ -5,13 +5,20 @@ import './IMuonV02.sol';
 import './IMRC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
-import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract MRC20Presale is Ownable {
   using ECDSA for bytes32;
 
   IMuonV02 public muon;
 
+  // Token Balances
+  mapping(address => uint256) public tokenBalances;
+  // Token Claimed
+  mapping(address => uint256) public tokenClaimed;
+
+  uint256 public totalTokenBalance;
+
+  // USD balances
   mapping(address => uint256) public balances;
   mapping(address => uint256) public lastTimes;
 
@@ -31,6 +38,7 @@ contract MRC20Presale is Ownable {
   uint256 public muonFeesScale = 1000;
 
   uint256 public startTime = block.timestamp;
+  uint256 public claimTime = block.timestamp + 24*3600;
 
   event Deposit(
     address token,
@@ -130,7 +138,11 @@ contract MRC20Presale is Ownable {
         extraParameters[3]
       );
     }
-    IMRC20(presaleToken).mint(address(msg.sender), mintAmount);
+    
+    //IMRC20(presaleToken).mint(address(msg.sender), mintAmount);
+
+    totalTokenBalance += mintAmount;
+    tokenBalances[msg.sender] += mintAmount;
 
     emit Deposit(
       token,
@@ -139,6 +151,15 @@ contract MRC20Presale is Ownable {
       forAddress,
       extraParameters
     );
+  }
+
+  function claim() public{
+    require(block.timestamp > claimTime, "!started");
+    uint256 cliamable = tokenBalances[msg.sender]-tokenClaimed[msg.sender];
+    require(cliamable > 0, "0 balance");
+
+    IMRC20(presaleToken).mint(msg.sender, cliamable);
+    tokenClaimed[msg.sender] += cliamable;
   }
 
   function setMuonContract(address addr) public onlyOwner {
@@ -159,6 +180,10 @@ contract MRC20Presale is Ownable {
 
   function setStartTime(uint256 _time) public onlyOwner {
     startTime = _time;
+  }
+
+  function setClaimTime(uint256 _time) public onlyOwner {
+    claimTime = _time;
   }
 
   function withdrawETH(uint256 amount, address addr) public onlyOwner {
