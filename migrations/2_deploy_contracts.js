@@ -1,6 +1,8 @@
 const bridge = artifacts.require('./MRC20Bridge.sol')
 const token = artifacts.require('./BloodToken.sol')
 const presale = artifacts.require('./MRC20Presale.sol')
+const presaleClaimable = artifacts.require('./MRC20PresaleClaimable.sol')
+
 const ERT_d6 = artifacts.require('./ERT_d6.sol')
 
 function parseArgv() {
@@ -48,6 +50,23 @@ module.exports = function (deployer) {
         }
         await deployer.deploy(
           presale,
+          params['muonAddress'],
+          params['presaleToken'],
+          params['mounFeesAddress']
+        )
+        break
+      case 'presaleClaimable':
+        if (!params['muonAddress']) {
+          throw { message: 'muonAddress required.' }
+        }
+        if (!params['presaleToken']) {
+          throw { message: 'presaleToken required.' }
+        }
+        if (!params['mounFeesAddress']) {
+          throw { message: 'mounFeesAddress required.' }
+        }
+        await deployer.deploy(
+          presaleClaimable,
           params['muonAddress'],
           params['presaleToken'],
           params['mounFeesAddress']
