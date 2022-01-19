@@ -97,7 +97,8 @@ module.exports = {
       network_id: 97,
       confirmations: 2,
       timeoutBlocks: 200,
-      skipDryRun: true
+      skipDryRun: true,
+      networkCheckTimeout: 999999
     },
 
     bsc: {
@@ -124,7 +125,8 @@ module.exports = {
       confirmations: 2,
       timeoutBlocks: 200,
       gas: 5500000,
-      skipDryRun: true
+      skipDryRun: true,
+      networkCheckTimeout: 999999
     },
     xdai: {
       provider: () =>

@@ -38,7 +38,7 @@ contract MRC20Bridge is AccessControl {
     uint256 public minReqSigs; // minimum required tss
     uint256 public fee;
     uint256 public feeScale = 1e6;
-    address public muonContract;
+    IMuonV02 public muon;
 
     uint8 constant APP_ID = 5; // muon's  app id
     // we assign a unique ID to each chain (default is CHAIN-ID)
@@ -59,7 +59,7 @@ contract MRC20Bridge is AccessControl {
         uint256 _fee
     ) {
         network = getExecutingChainID();
-        muonContract = _muon;
+        muon = IMuonV02(_muon);
         minReqSigs = _minReqSigs;
         fee = _fee;
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -139,7 +139,6 @@ contract MRC20Bridge is AccessControl {
                 )
             );
 
-            IMuonV02 muon = IMuonV02(muonContract);
             require(
                 muon.verify(_reqId, uint256(hash), sigs),
                 "Bridge: not verified"
@@ -223,6 +222,9 @@ contract MRC20Bridge is AccessControl {
         delete sideContracts[network];
     }
 
+    function setMuonContract(address addr) public  onlyRole(ADMIN_ROLE) {
+        muon = IMuonV02(addr);
+    }
     function setFee(uint256 _fee) external onlyRole(ADMIN_ROLE) {
         fee = _fee;
     }
