@@ -33,7 +33,7 @@ contract MRC20Bridge is AccessControl {
 
     event AddToken(address addr, uint256 tokenId);
 
-    event Deposit(uint256 txId, uint256 amount);
+    event Deposit(uint256 txId);
 
     event Claim(
         address indexed user,
@@ -46,10 +46,8 @@ contract MRC20Bridge is AccessControl {
         // uint256 txId;
         uint256 tokenId;
         uint256 amount;
-        // uint256 fromChain;
         uint256 toChain;
         address user;
-        // uint256 timestamp;
     }
 
     uint256 public lastTxId = 0; // unique id for deposit tx
@@ -106,8 +104,7 @@ contract MRC20Bridge is AccessControl {
             user: user
         });
 
-        // emit Deposit(user, tokenId, amount, toChain, txId);
-        emit Deposit(txId, amount);
+        emit Deposit(txId);
 
         return txId;
     }
@@ -187,7 +184,6 @@ contract MRC20Bridge is AccessControl {
         fromChain = network;
         toChain = txs[_txId].toChain;
         user = txs[_txId].user;
-        // timestamp = txs[_txId].timestamp;
     }
 
     function getExecutingChainID() public view returns (uint256) {
