@@ -39,22 +39,19 @@ contract MRC20 is ERC20, ERC20Burnable, AccessControl {
      * should Approve before using the MRC20Bridge.
      *
      */
-    function burnFrom(address from, uint256 amount) public override{
-        if(hasRole(BURNER_ROLE, msg.sender)){
+    function burnFrom(address from, uint256 amount) public override {
+        if (hasRole(BURNER_ROLE, msg.sender)) {
             _burn(from, amount);
-        }else{
+        } else {
             super.burnFrom(from, amount);
         }
     }
 
     /**
-     * @dev To enable crosschain transfers, 
+     * @dev To enable crosschain transfers,
      * MRC20Bridge should have MINTER_ROLE
      */
-    function mint(address to, uint256 amount)
-        external
-        onlyRole(MINTER_ROLE)
-    {
+    function mint(address to, uint256 amount) public {
         _mint(to, amount);
     }
 }

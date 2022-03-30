@@ -7,12 +7,11 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract MRC20Bridge is AccessControl {
-
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /**
      * @dev `AddToken` and `setSideContract`
-     * are using this role. 
+     * are using this role.
      *
      * This role could be granted another contract to let a Muon app
      * manage the tokens. The token deployer will be verified by
@@ -22,34 +21,46 @@ contract MRC20Bridge is AccessControl {
 
     using ECDSA for bytes32;
 
+    uint32 public constant APP_ID = 5; // muon's  app id
+
+    IMuonV02 public muon;
+
+    uint256 public network; // current chain id
+
+    // tokenId => tokenContractAddress
+    mapping(uint256 => address) public tokens;
+    mapping(address => uint256) public ids;
+
+    event AddToken(address addr, uint256 tokenId);
+
+    event Deposit(uint256 txId, uint256 amount);
+
+    event Claim(
+        address indexed user,
+        uint256 txId,
+        uint256 fromChain,
+        uint256 amount
+    );
     /* ========== STATE VARIABLES ========== */
     struct TX {
-        uint256 txId;
+        // uint256 txId;
         uint256 tokenId;
         uint256 amount;
-        uint256 fromChain;
+        // uint256 fromChain;
         uint256 toChain;
         address user;
-        uint256 timestamp;
+        // uint256 timestamp;
     }
 
     uint256 public lastTxId = 0; // unique id for deposit tx
-    uint256 public network; // current chain id
+    mapping(uint256 => TX) public txs;
+
+    // source chain => (tx id => false/true)
+    mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
+
     uint256 public minReqSigs; // minimum required tss
     uint256 public fee;
     uint256 public feeScale = 1e6;
-    IMuonV02 public muon;
-
-    uint8 constant APP_ID = 5; // muon's  app id
-    // we assign a unique ID to each chain (default is CHAIN-ID)
-    mapping(uint256 => address) public sideContracts;
-    // tokenId => tokenContractAddress
-    mapping(uint256 => address) public tokens;
-    mapping(uint256 => TX) public txs;
-    // user => (destination chain => user's txs id)
-    mapping(address => mapping(uint256 => uint256[])) public userTxs;
-    // source chain => (tx id => false/true)
-    mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
 
     /* ========== CONSTRUCTOR ========== */
 
@@ -81,10 +92,6 @@ contract MRC20Bridge is AccessControl {
         uint256 toChain,
         uint256 tokenId
     ) public returns (uint256 txId) {
-        require(
-            sideContracts[toChain] != address(0),
-            "Bridge: unknown toChain"
-        );
         require(toChain != network, "Bridge: selfDeposit");
         require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
@@ -93,17 +100,16 @@ contract MRC20Bridge is AccessControl {
 
         txId = ++lastTxId;
         txs[txId] = TX({
-            txId: txId,
             tokenId: tokenId,
-            fromChain: network,
             toChain: toChain,
             amount: amount,
-            user: user,
-            timestamp: block.timestamp
+            user: user
         });
-        userTxs[user][toChain].push(txId);
 
-        emit Deposit(user, tokenId, amount, toChain, txId);
+        // emit Deposit(user, tokenId, amount, toChain, txId);
+        emit Deposit(txId, amount);
+
+        return txId;
     }
 
     function claim(
@@ -116,10 +122,6 @@ contract MRC20Bridge is AccessControl {
         bytes calldata _reqId,
         IMuonV02.SchnorrSign[] calldata sigs
     ) public {
-        require(
-            sideContracts[fromChain] != address(0),
-            "Bridge: source contract not exist"
-        );
         require(toChain == network, "Bridge: toChain should equal network");
         require(
             sigs.length >= minReqSigs,
@@ -129,13 +131,9 @@ contract MRC20Bridge is AccessControl {
         {
             bytes32 hash = keccak256(
                 abi.encodePacked(
-                    abi.encodePacked(
-                        sideContracts[fromChain],
-                        txId,
-                        tokenId,
-                        amount
-                    ),
-                    abi.encodePacked(fromChain, toChain, user, APP_ID)
+                    abi.encodePacked(APP_ID),
+                    abi.encodePacked(txId, tokenId, amount),
+                    abi.encodePacked(fromChain, toChain, user)
                 )
             );
 
@@ -154,28 +152,20 @@ contract MRC20Bridge is AccessControl {
         token.mint(user, amount);
 
         claimedTxs[fromChain][txId] = true;
-        emit Claim(user, tokenId, amount, fromChain, txId);
+        emit Claim(user, txId, fromChain, amount);
     }
 
     /* ========== VIEWS ========== */
 
-    function pendingTxs(uint256 fromChain, uint256[] calldata ids)
+    function pendingTxs(uint256 fromChain, uint256[] calldata _ids)
         public
         view
         returns (bool[] memory unclaimedIds)
     {
-        unclaimedIds = new bool[](ids.length);
-        for (uint256 i = 0; i < ids.length; i++) {
-            unclaimedIds[i] = claimedTxs[fromChain][ids[i]];
+        unclaimedIds = new bool[](_ids.length);
+        for (uint256 i = 0; i < _ids.length; i++) {
+            unclaimedIds[i] = claimedTxs[fromChain][_ids[i]];
         }
-    }
-
-    function getUserTxs(address user, uint256 toChain)
-        public
-        view
-        returns (uint256[] memory)
-    {
-        return userTxs[user][toChain];
     }
 
     function getTx(uint256 _txId)
@@ -187,17 +177,17 @@ contract MRC20Bridge is AccessControl {
             uint256 amount,
             uint256 fromChain,
             uint256 toChain,
-            address user,
-            uint256 timestamp
+            address user
         )
+    // uint256 timestamp
     {
-        txId = txs[_txId].txId;
+        txId = _txId;
         tokenId = txs[_txId].tokenId;
         amount = txs[_txId].amount;
-        fromChain = txs[_txId].fromChain;
+        fromChain = network;
         toChain = txs[_txId].toChain;
         user = txs[_txId].user;
-        timestamp = txs[_txId].timestamp;
+        // timestamp = txs[_txId].timestamp;
     }
 
     function getExecutingChainID() public view returns (uint256) {
@@ -217,28 +207,24 @@ contract MRC20Bridge is AccessControl {
         tokens[tokenId] = tokenAddress;
     }
 
-    function setNetworkID(uint256 _network) external onlyRole(ADMIN_ROLE) {
-        network = _network;
-        delete sideContracts[network];
+    function getTokenId(address _addr) public view returns (uint256) {
+        return ids[_addr];
     }
 
-    function setMuonContract(address addr) public  onlyRole(ADMIN_ROLE) {
+    function setNetworkID(uint256 _network) external onlyRole(ADMIN_ROLE) {
+        network = _network;
+    }
+
+    function setMuonContract(address addr) public onlyRole(ADMIN_ROLE) {
         muon = IMuonV02(addr);
     }
+
     function setFee(uint256 _fee) external onlyRole(ADMIN_ROLE) {
         fee = _fee;
     }
 
     function setMinReqSigs(uint256 _minReqSigs) external onlyRole(ADMIN_ROLE) {
         minReqSigs = _minReqSigs;
-    }
-
-    function setSideContract(uint256 _network, address _addr)
-        external
-        onlyRole(TOKEN_ADDER_ROLE)
-    {
-        require(network != _network, "Bridge: current network");
-        sideContracts[_network] = _addr;
     }
 
     function emergencyWithdrawETH(uint256 amount, address addr)
@@ -256,21 +242,4 @@ contract MRC20Bridge is AccessControl {
     ) external onlyRole(ADMIN_ROLE) {
         IERC20(_tokenAddr).transfer(_to, _amount);
     }
-
-    /* ========== EVENTS ========== */
-    event Deposit(
-        address indexed user,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 indexed toChain,
-        uint256 txId
-    );
-
-    event Claim(
-        address indexed user,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 indexed fromChain,
-        uint256 txId
-    );
 }
