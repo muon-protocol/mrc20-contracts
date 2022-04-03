@@ -39,7 +39,8 @@ contract MRC20Bridge is AccessControl {
         address indexed user,
         uint256 txId,
         uint256 fromChain,
-        uint256 amount
+        uint256 amount,
+        uint256 tokenId
     );
     /* ========== STATE VARIABLES ========== */
     struct TX {
@@ -149,7 +150,7 @@ contract MRC20Bridge is AccessControl {
         token.mint(user, amount);
 
         claimedTxs[fromChain][txId] = true;
-        emit Claim(user, txId, fromChain, amount);
+        emit Claim(user, txId, fromChain, amount, tokenId);
     }
 
     /* ========== VIEWS ========== */
