@@ -201,13 +201,7 @@ contract MRC20Bridge is AccessControl {
         external
         onlyRole(TOKEN_ADDER_ROLE)
     {
-        require(ids[tokenAddress] == 0, "already exist");
-
         tokens[tokenId] = tokenAddress;
-
-        ids[tokenAddress] = tokenId;
-
-        emit AddToken(tokenAddress, tokenId);
     }
 
     function getTokenId(address _addr) public view returns (uint256) {
