@@ -6,7 +6,7 @@ import './IMRC20.sol';
 import '@openzeppelin/contracts/access/Ownable.sol';
 import '@openzeppelin/contracts/utils/cryptography/ECDSA.sol';
 
-contract MRC20Presale is Ownable {
+contract MRC20PresaleClaimable is Ownable {
   using ECDSA for bytes32;
 
   IMuonV02 public muon;
