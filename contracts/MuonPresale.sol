@@ -15,7 +15,7 @@ contract MuonPresale is Ownable {
   mapping(address => uint256) public balances;
   mapping(address => uint256) public lastTimes;
 
-  mapping(address => mapping(uint8 => uint256)) roundBalances;
+  mapping(address => mapping(uint8 => uint256)) public roundBalances;
 
   //TODO: set this
   uint32 public APP_ID = 6;
