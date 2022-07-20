@@ -2,6 +2,7 @@ const bridge = artifacts.require('./MRC20Bridge.sol')
 const token = artifacts.require('./BloodToken.sol')
 const presale = artifacts.require('./MRC20Presale.sol')
 const presaleClaimable = artifacts.require('./MRC20PresaleClaimable.sol')
+const muonPresale = artifacts.require('./MuonPresale.sol')
 
 const ERT_d6 = artifacts.require('./ERT_d6.sol')
 
@@ -55,6 +56,7 @@ module.exports = function (deployer) {
           params['mounFeesAddress']
         )
         break
+
       case 'presaleClaimable':
         if (!params['muonAddress']) {
           throw { message: 'muonAddress required.' }
@@ -71,6 +73,12 @@ module.exports = function (deployer) {
           params['presaleToken'],
           params['mounFeesAddress']
         )
+        break
+      case 'muonPresale':
+        if (!params['muonAddress']) {
+          throw { message: 'muonAddress required.' }
+        }
+        await deployer.deploy(muonPresale, params['muonAddress'])
         break
       case 'ERT':
         await deployer.deploy(ERT_d6)
