@@ -30,7 +30,6 @@ contract MuonPresale is Ownable {
 
     event Deposit(
         address token,
-        //uint256 presaleTokenPrice,
         address fromAddress,
         address forAddress,
         uint8 round,
@@ -108,9 +107,6 @@ contract MuonPresale is Ownable {
 
         lastTimes[forAddress] = extraParameters[4];
 
-        // uint256 mintAmount = (usdAmount * (10**IMRC20(presaleToken).decimals())) /
-        //   presaleTokenPrice;
-
         require(
             token != address(0) || extraParameters[3] == msg.value,
             "amount err"
@@ -123,8 +119,6 @@ contract MuonPresale is Ownable {
                 extraParameters[3]
             );
         }
-
-        //IMRC20(presaleToken).mint(address(msg.sender), mintAmount);
 
         emit Deposit(token, msg.sender, forAddress, round, extraParameters);
     }
@@ -159,6 +153,24 @@ contract MuonPresale is Ownable {
         address _to,
         uint256 _amount
     ) public onlyOwner {
+        require(_to != address(0));
         IMRC20(_tokenAddr).transfer(_to, _amount);
+    }
+
+    function userInfo(address _user, uint8 rounds) public view returns (
+        uint256 _totalBalance,
+        uint256 _startTime,
+        uint256 _userBalance,
+        uint256 _lastTime,
+        uint256[] memory _roundBalances
+    ) {
+        _startTime = startTime;
+        _totalBalance = totalBalance;
+        _userBalance = balances[_user];
+        _lastTime = lastTimes[_user];
+        _roundBalances = new uint256[](rounds);
+        for(uint8 i=0; i<rounds-1; i++){
+            _roundBalances[i] = roundBalances[_user][i+1];
+        }
     }
 }
