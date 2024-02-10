@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./IMuonV02.sol";
-import "./IMRC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "./IMRC20.sol";
+import "./interfaces/IMuonClient.sol";
 
 contract MRC20Bridge is AccessControl {
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -21,9 +21,9 @@ contract MRC20Bridge is AccessControl {
 
     using ECDSA for bytes32;
 
-    uint32 public constant APP_ID = 5; // muon's  app id
-
-    IMuonV02 public muon;
+    uint256 public muonAppId;
+    IMuonClient.PublicKey public muonPublicKey;
+    IMuonClient public muon;
 
     uint256 public network; // current chain id
 
@@ -38,9 +38,9 @@ contract MRC20Bridge is AccessControl {
     event Claim(
         address indexed user,
         uint256 txId,
-        uint256 fromChain,
+        uint256 indexed fromChain,
         uint256 amount,
-        uint256 tokenId
+        uint256 indexed tokenId
     );
     /* ========== STATE VARIABLES ========== */
     struct TX {
@@ -57,20 +57,21 @@ contract MRC20Bridge is AccessControl {
     // source chain => (tx id => false/true)
     mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
 
-    uint256 public minReqSigs; // minimum required tss
     uint256 public fee;
     uint256 public feeScale = 1e6;
 
     /* ========== CONSTRUCTOR ========== */
 
     constructor(
+        uint256 _muonAppId,
+        IMuonClient.PublicKey memory _muonPublicKey,
         address _muon,
-        uint256 _minReqSigs,
         uint256 _fee
     ) {
         network = getExecutingChainID();
-        muon = IMuonV02(_muon);
-        minReqSigs = _minReqSigs;
+        muonAppId = _muonAppId;
+        muonPublicKey = _muonPublicKey;
+        muon = IMuonClient(_muon);
         fee = _fee;
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
@@ -117,26 +118,23 @@ contract MRC20Bridge is AccessControl {
         uint256 toChain,
         uint256 tokenId,
         uint256 txId,
-        bytes calldata _reqId,
-        IMuonV02.SchnorrSign[] calldata sigs
-    ) public {
+        bytes calldata reqId,
+        IMuonClient.SchnorrSign calldata signature
+    ) external {
         require(toChain == network, "Bridge: toChain should equal network");
-        require(
-            sigs.length >= minReqSigs,
-            "Bridge: insufficient number of signatures"
-        );
 
         {
             bytes32 hash = keccak256(
                 abi.encodePacked(
-                    abi.encodePacked(APP_ID),
+                    abi.encodePacked(muonAppId),
+                    abi.encodePacked(reqId),
                     abi.encodePacked(txId, tokenId, amount),
                     abi.encodePacked(fromChain, toChain, user)
                 )
             );
 
             require(
-                muon.verify(_reqId, uint256(hash), sigs),
+                muon.muonVerify(reqId, uint256(hash), signature, muonPublicKey),
                 "Bridge: not verified"
             );
         }
@@ -144,30 +142,31 @@ contract MRC20Bridge is AccessControl {
         require(!claimedTxs[fromChain][txId], "Bridge: already claimed");
         require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
+        claimedTxs[fromChain][txId] = true;
         amount -= (amount * fee) / feeScale;
         IMRC20 token = IMRC20(tokens[tokenId]);
 
         token.mint(user, amount);
 
-        claimedTxs[fromChain][txId] = true;
         emit Claim(user, txId, fromChain, amount, tokenId);
     }
 
     /* ========== VIEWS ========== */
 
-    function pendingTxs(uint256 fromChain, uint256[] calldata _ids)
-        public
-        view
-        returns (bool[] memory unclaimedIds)
-    {
+    function pendingTxs(
+        uint256 fromChain,
+        uint256[] calldata _ids
+    ) external view returns (bool[] memory unclaimedIds) {
         unclaimedIds = new bool[](_ids.length);
         for (uint256 i = 0; i < _ids.length; i++) {
             unclaimedIds[i] = claimedTxs[fromChain][_ids[i]];
         }
     }
 
-    function getTx(uint256 _txId)
-        public
+    function getTx(
+        uint256 _txId
+    )
+        external
         view
         returns (
             uint256 txId,
@@ -197,14 +196,29 @@ contract MRC20Bridge is AccessControl {
 
     /* ========== RESTRICTED FUNCTIONS ========== */
 
-    function addToken(uint256 tokenId, address tokenAddress)
-        external
-        onlyRole(TOKEN_ADDER_ROLE)
-    {
+    function addToken(
+        uint256 tokenId,
+        address tokenAddress
+    ) external onlyRole(TOKEN_ADDER_ROLE) {
+        require(ids[tokenAddress] == 0, "already exist");
+
         tokens[tokenId] = tokenAddress;
+        ids[tokenAddress] = tokenId;
+
+        emit AddToken(tokenAddress, tokenId);
     }
 
-    function getTokenId(address _addr) public view returns (uint256) {
+    function removeToken(
+        uint256 tokenId,
+        address tokenAddress
+    ) external onlyRole(TOKEN_ADDER_ROLE) {
+        require(ids[tokenAddress] == tokenId, "id!=addr");
+
+        ids[tokenAddress] = 0;
+        tokens[tokenId] = address(0);
+    }
+
+    function getTokenId(address _addr) external view returns (uint256) {
         return ids[_addr];
     }
 
@@ -212,22 +226,30 @@ contract MRC20Bridge is AccessControl {
         network = _network;
     }
 
-    function setMuonContract(address addr) public onlyRole(ADMIN_ROLE) {
-        muon = IMuonV02(addr);
+    function setMuonAppId(
+        uint256 _muonAppId
+    ) external onlyRole(ADMIN_ROLE) {
+        muonAppId = _muonAppId;
+    }
+
+    function setMuonContract(address addr) external onlyRole(ADMIN_ROLE) {
+        muon = IMuonClient(addr);
+    }
+
+    function setMuonPubKey(
+        IMuonClient.PublicKey memory _muonPublicKey
+    ) external onlyRole(ADMIN_ROLE) {
+        muonPublicKey = _muonPublicKey;
     }
 
     function setFee(uint256 _fee) external onlyRole(ADMIN_ROLE) {
         fee = _fee;
     }
 
-    function setMinReqSigs(uint256 _minReqSigs) external onlyRole(ADMIN_ROLE) {
-        minReqSigs = _minReqSigs;
-    }
-
-    function emergencyWithdrawETH(uint256 amount, address addr)
-        external
-        onlyRole(ADMIN_ROLE)
-    {
+    function emergencyWithdrawETH(
+        uint256 amount,
+        address addr
+    ) external onlyRole(ADMIN_ROLE) {
         require(addr != address(0));
         payable(addr).transfer(amount);
     }
